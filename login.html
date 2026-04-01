@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login / Sign Up</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f5f7fb;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    h2 {
+      color: #1e293b;
+    }
+
+    input {
+      width: 250px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    /* 🔥 BUTTON STYLE */
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .card {
+      background: white;
+      display: inline-block;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      margin: 10px;
+    }
+
+    hr {
+      margin: 30px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+    <h2>Login</h2>
+
+    <input id="loginUsername" placeholder="Username"><br><br>
+    <input id="loginPassword" type="password" placeholder="Password"><br><br>
+
+    <button onclick="login()">Login</button>
+  </div>
+
+  <hr>
+
+  <div class="card">
+    <h2>Sign Up</h2>
+
+    <input id="signupUsername" placeholder="Username"><br><br>
+    <input id="signupPassword" type="password" placeholder="Password"><br><br>
+
+    <button onclick="signup()">Sign Up</button>
+  </div>
+
+  <script>
+    function signup() {
+      let username = document.getElementById("signupUsername").value;
+      let password = document.getElementById("signupPassword").value;
+
+      if (!username || !password) {
+        alert("Fill everything!");
+        return;
+      }
+
+      let users = JSON.parse(localStorage.getItem("users")) || [];
+
+      let exists = users.find(u => u.username === username);
+      if (exists) {
+        alert("Username taken!");
+        return;
+      }
+
+      users.push({ username, password });
+
+      localStorage.setItem("users", JSON.stringify(users));
+      localStorage.setItem("currentUser", username);
+
+      window.location.href = "dashboard.html";
+    }
+
+    function login() {
+      let username = document.getElementById("loginUsername").value;
+      let password = document.getElementById("loginPassword").value;
+
+      let users = JSON.parse(localStorage.getItem("users")) || [];
+
+      let user = users.find(u => u.username === username && u.password === password);
+
+      if (!user) {
+        alert("Invalid login!");
+        return;
+      }
+
+      localStorage.setItem("currentUser", username);
+
+      window.location.href = "dashboard.html";
+    }
+  </script>
+
+</body>
+</html>

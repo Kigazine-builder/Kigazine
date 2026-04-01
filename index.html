@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kigazine</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white;
+      text-align: center;
+    }
+
+    .container {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.1);
+      padding: 40px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* IMAGE LOGO */
+    .logo {
+  width: 400px;
+  max-width: 90%;
+  height: auto;
+}
+      margin-bottom: 10px;
+    }
+
+    /* TEXT LOGO (fallback) */
+    .logo-text {
+      font-size: 50px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #ffffff, #dbeafe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    p {
+      font-size: 20px;
+      opacity: 0.9;
+      margin-bottom: 30px;
+    }
+
+    button {
+      background: white;
+      color: #2563eb;
+      border: none;
+      padding: 14px 22px;
+      font-size: 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="card">
+
+      <!-- 🔥 LOGO IMAGE (if it exists) -->
+      <img src="./logo.png" class="logo"
+           onerror="this.style.display='none'">
+
+      <!-- 🔥 FALLBACK TEXT LOGO (always shows) -->
+      <h1 class="logo-text">Kigazine</h1>
+
+      <p>Create. Share. Discover posts from everyone.</p>
+
+      <a href="login.html">
+        <button>Get Started</button>
+      </a>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

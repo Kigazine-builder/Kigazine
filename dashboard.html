@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kigazine Dashboard</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      display: flex;
+      background: #f5f7fb;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: #0f172a;
+      padding: 15px;
+      height: 100vh;
+    }
+
+    .sidebar button {
+      width: 100%;
+      margin: 8px 0;
+    }
+
+    .content {
+      flex: 1;
+      padding: 25px;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .active {
+      display: block;
+    }
+
+    .post {
+      background: white;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    input, textarea {
+      width: 300px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    /* 🔥 GLOBAL BUTTON STYLE */
+    button {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    }
+
+    /* logout button */
+    .logout {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+    }
+
+    .logout:hover {
+      background: linear-gradient(135deg, #b91c1c, #dc2626);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="sidebar">
+    <button onclick="showPage('view')">View</button>
+    <button onclick="showPage('create')">Create</button>
+    <button onclick="showPage('account')">Account</button>
+    <a href="index.html"><button class="logout">Logout</button></a>
+  </div>
+
+  <div class="content">
+
+    <div id="view" class="page active">
+      <h2>View Posts</h2>
+      <button onclick="loadPosts()">Refresh</button>
+      <div id="posts"></div>
+    </div>
+
+    <div id="create" class="page">
+      <h2>Create Post</h2>
+
+      <input id="title" placeholder="Title"><br><br>
+      <textarea id="text" placeholder="Write something..."></textarea><br><br>
+
+      <button onclick="publishPost()">Publish</button>
+    </div>
+
+    <div id="account" class="page">
+      <h2>Account</h2>
+      <p id="userDisplay"></p>
+    </div>
+
+  </div>
+
+  <script>
+    let currentUser = localStorage.getItem("currentUser") || "Guest";
+
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+
+      if (pageId === "view") loadPosts();
+      if (pageId === "account") {
+        document.getElementById("userDisplay").innerText =
+          "Logged in as: " + currentUser;
+      }
+    }
+
+    function publishPost() {
+      let title = document.getElementById("title").value;
+      let text = document.getElementById("text").value;
+
+      if (!title || !text) return alert("Fill everything!");
+
+      let posts = JSON.parse(localStorage.getItem("posts")) || [];
+
+      posts.push({ title, text, user: currentUser });
+
+      localStorage.setItem("posts", JSON.stringify(posts));
+
+      document.getElementById("title").value = "";
+      document.getElementById("text").value = "";
+
+      loadPosts();
+    }
+
+    function loadPosts() {
+      let posts = JSON.parse(localStorage.getItem("posts")) || [];
+
+      let container = document.getElementById("posts");
+      container.innerHTML = "";
+
+      if (posts.length === 0) {
+        container.innerHTML = "<p>No posts yet.</p>";
+        return;
+      }
+
+      posts.forEach(p => {
+        let div = document.createElement("div");
+        div.className = "post";
+        div.innerHTML = `
+          <h3>${p.title}</h3>
+          <p>${p.text}</p>
+          <small>by ${p.user}</small>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    loadPosts();
+  </script>
+
+</body>
+</html>
