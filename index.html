@@ -1,97 +1,297 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Kigazine</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kigazine v2.5</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
-      color: white;
-      text-align: center;
-    }
-
-    .container {
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .card {
-      background: rgba(255,255,255,0.1);
-      padding: 40px;
-      border-radius: 20px;
-      backdrop-filter: blur(10px);
-    }
-
-    /* IMAGE LOGO */
-    .logo {
-  width: 400px;
-  max-width: 90%;
-  height: auto;
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: white;
+  display: flex;
 }
-      margin-bottom: 10px;
-    }
 
-    /* TEXT LOGO (fallback) */
-    .logo-text {
-      font-size: 50px;
-      font-weight: bold;
-      background: linear-gradient(135deg, #ffffff, #dbeafe);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 10px;
-    }
+/* SIDEBAR */
+.sidebar {
+  width: 230px;
+  background: linear-gradient(180deg, #0f172a, #020617);
+  height: 100vh;
+  padding: 18px;
+  box-sizing: border-box;
+  border-right: 1px solid #1e293b;
+}
 
-    p {
-      font-size: 20px;
-      opacity: 0.9;
-      margin-bottom: 30px;
-    }
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 25px;
+  text-align: center;
+}
 
-    button {
-      background: white;
-      color: #2563eb;
-      border: none;
-      padding: 14px 22px;
-      font-size: 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.2s ease;
-    }
+.nav-btn {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #cbd5f5;
+  cursor: pointer;
+  text-align: left;
+  transition: 0.2s;
+}
 
-    button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-    }
-  </style>
+.nav-btn:hover {
+  background: #1e293b;
+  color: white;
+}
+
+.nav-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.section {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.user-text {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #0f172a;
+  color: white;
+}
+
+textarea { height: 120px; }
+
+/* MAIN */
+.main {
+  flex: 1;
+  padding: 20px;
+}
+
+button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover { background: #2563eb; }
+
+.danger { background: #ef4444; }
+.danger:hover { background: #dc2626; }
+
+/* MAGAZINES */
+.mag {
+  background: #0f172a;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  border: 1px solid #1e293b;
+}
+
+.title { font-size: 18px; font-weight: bold; }
+.author { font-size: 12px; opacity: 0.7; }
+
+.actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+</style>
 </head>
 
 <body>
 
-  <div class="container">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">📘 Kigazine</div>
 
-    <div class="card">
+  <button class="nav-btn active" onclick="show('feed')">🏠 Home</button>
+  <button class="nav-btn" onclick="show('create')">➕ Create</button>
 
-      <!-- 🔥 LOGO IMAGE (if it exists) -->
-      <img src="./logo.png" class="logo"
-           onerror="this.style.display='none'">
+  <div class="section">Account</div>
 
-      <!-- 🔥 FALLBACK TEXT LOGO (always shows) -->
-      <h1 class="logo-text">Kigazine</h1>
+  <input id="username" placeholder="Enter username">
+  <button onclick="setUser()">Login</button>
 
-      <p>Create. Share. Discover posts from everyone.</p>
+  <p id="currentUserText" class="user-text"></p>
+</div>
 
-      <a href="login.html">
-        <button>Get Started</button>
-      </a>
+<!-- MAIN -->
+<div class="main">
 
-    </div>
+  <!-- CREATE PAGE -->
+  <div id="createPage" style="display:none;">
+    <h2>Create Magazine</h2>
 
+    <input id="title" placeholder="Title">
+    <textarea id="content" placeholder="Write your magazine..."></textarea>
+
+    <button onclick="createMag()">Publish</button>
   </div>
+
+  <!-- FEED PAGE -->
+  <div id="feedPage">
+    <h2>🌍 Public Feed</h2>
+    <div id="feed"></div>
+  </div>
+
+</div>
+
+<script>
+let currentUser = localStorage.getItem("user") || "";
+
+function setUser() {
+  const u = document.getElementById("username").value.trim();
+  if (!u) return alert("Enter username");
+
+  currentUser = u;
+  localStorage.setItem("user", u);
+
+  document.getElementById("currentUserText").innerText = "Logged in as: " + u;
+}
+
+/* LOAD USER TEXT ON START */
+if (currentUser) {
+  document.getElementById("currentUserText").innerText = "Logged in as: " + currentUser;
+}
+
+/* STORAGE */
+function getMags() {
+  return JSON.parse(localStorage.getItem("mags") || "[]");
+}
+
+function saveMags(mags) {
+  localStorage.setItem("mags", JSON.stringify(mags));
+}
+
+/* CREATE */
+function createMag() {
+  if (!currentUser) return alert("Login first!");
+
+  const title = document.getElementById("title").value;
+  const content = document.getElementById("content").value;
+
+  if (!title || !content) return alert("Fill everything");
+
+  const mags = getMags();
+
+  mags.unshift({
+    id: Date.now(),
+    title,
+    content,
+    author: currentUser
+  });
+
+  saveMags(mags);
+
+  document.getElementById("title").value = "";
+  document.getElementById("content").value = "";
+
+  render();
+  show("feed");
+}
+
+/* DELETE */
+function deleteMag(id) {
+  saveMags(getMags().filter(m => m.id !== id));
+  render();
+}
+
+/* EDIT */
+function editMag(id) {
+  const mags = getMags();
+  const m = mags.find(x => x.id === id);
+  if (!m) return;
+
+  const t = prompt("Title", m.title);
+  const c = prompt("Content", m.content);
+
+  if (t && c) {
+    m.title = t;
+    m.content = c;
+    saveMags(mags);
+    render();
+  }
+}
+
+/* RENDER */
+function render() {
+  const feed = document.getElementById("feed");
+  feed.innerHTML = "";
+
+  getMags().forEach(m => {
+    const div = document.createElement("div");
+    div.className = "mag";
+
+    div.innerHTML = `
+      <div class="title">${m.title}</div>
+      <div class="author">by ${m.author}</div>
+      <p>${m.content}</p>
+    `;
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const view = document.createElement("button");
+    view.innerText = "View";
+    view.onclick = () => alert(m.content);
+
+    actions.appendChild(view);
+
+    if (m.author === currentUser) {
+      const edit = document.createElement("button");
+      edit.innerText = "Edit";
+      edit.onclick = () => editMag(m.id);
+
+      const del = document.createElement("button");
+      del.innerText = "Delete";
+      del.className = "danger";
+      del.onclick = () => deleteMag(m.id);
+
+      actions.appendChild(edit);
+      actions.appendChild(del);
+    }
+
+    div.appendChild(actions);
+    feed.appendChild(div);
+  });
+}
+
+/* PAGE SWITCH */
+function show(page) {
+  document.getElementById("createPage").style.display = page === "create" ? "block" : "none";
+  document.getElementById("feedPage").style.display = page === "feed" ? "block" : "none";
+
+  // active button highlight
+  document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
+
+  if (page === "feed") document.querySelectorAll(".nav-btn")[0].classList.add("active");
+  if (page === "create") document.querySelectorAll(".nav-btn")[1].classList.add("active");
+}
+
+render();
+</script>
 
 </body>
 </html>
