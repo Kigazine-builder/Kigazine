@@ -6,29 +6,45 @@
 <title>Kigazine v2.5</title>
 
 <style>
-body {
+* {
+  box-sizing: border-box;
+}
+
+html, body {
   margin: 0;
+  min-height: 100%;
   font-family: Arial, sans-serif;
   background: #020617;
   color: white;
+}
+
+body {
   display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* SIDEBAR */
 .sidebar {
-  width: 230px;
-  background: linear-gradient(180deg, #0f172a, #020617);
-  height: 100vh;
+  width: 260px;
+  min-width: 260px;
+  max-width: 260px;
+  min-height: 100vh;
   padding: 18px;
-  box-sizing: border-box;
+  background: linear-gradient(180deg, #0f172a, #020617);
   border-right: 1px solid #1e293b;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
 }
 
 .logo {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
   margin-bottom: 25px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .nav-btn {
@@ -41,7 +57,7 @@ body {
   color: #cbd5f5;
   cursor: pointer;
   text-align: left;
-  transition: 0.2s;
+  transition: background 0.2s, color 0.2s, transform 0.08s;
 }
 
 .nav-btn:hover {
@@ -49,9 +65,14 @@ body {
   color: white;
 }
 
+.nav-btn:active {
+  transform: translateY(1px);
+}
+
 .nav-btn.active {
   background: #3b82f6;
   color: white;
+  font-weight: 700;
 }
 
 .section {
@@ -65,6 +86,7 @@ body {
   margin-top: 10px;
   font-size: 12px;
   opacity: 0.7;
+  word-break: break-word;
 }
 
 input, textarea {
@@ -78,12 +100,28 @@ input, textarea {
   color: white;
 }
 
-textarea { height: 120px; }
+textarea {
+  height: 120px;
+  resize: vertical;
+}
 
 /* MAIN */
 .main {
   flex: 1;
-  padding: 20px;
+  min-width: 0;
+  width: calc(100vw - 260px);
+  padding: 24px;
+  overflow-x: hidden;
+}
+
+.page {
+  display: none;
+  max-width: 980px;
+  width: 100%;
+}
+
+.page.active-page {
+  display: block;
 }
 
 button {
@@ -96,6 +134,7 @@ button {
 }
 
 button:hover { background: #2563eb; }
+button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
 
 .danger { background: #ef4444; }
 .danger:hover { background: #dc2626; }
@@ -107,6 +146,7 @@ button:hover { background: #2563eb; }
   border-radius: 10px;
   margin-bottom: 12px;
   border: 1px solid #1e293b;
+  overflow-wrap: anywhere;
 }
 
 .title { font-size: 18px; font-weight: bold; }
@@ -115,7 +155,29 @@ button:hover { background: #2563eb; }
 .actions {
   margin-top: 8px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+@media (max-width: 700px) {
+  body {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  .main {
+    width: 100%;
+    padding: 16px;
+  }
 }
 </style>
 </head>
@@ -123,43 +185,44 @@ button:hover { background: #2563eb; }
 <body>
 
 <!-- SIDEBAR -->
-<div class="sidebar">
+<nav class="sidebar" aria-label="Kigazine navigation">
   <div class="logo">📘 Kigazine</div>
 
-  <button class="nav-btn active" onclick="show('feed')">🏠 Home</button>
-  <button class="nav-btn" onclick="show('create')">➕ Create</button>
+  <button class="nav-btn active" data-page="feed" type="button">🏠 Home</button>
+  <button class="nav-btn" data-page="create" type="button">➕ Create</button>
 
   <div class="section">Account</div>
 
-  <input id="username" placeholder="Enter username">
-  <button onclick="setUser()">Login</button>
+  <input id="username" placeholder="Enter username" autocomplete="username">
+  <button type="button" onclick="setUser()">Login</button>
 
   <p id="currentUserText" class="user-text"></p>
-</div>
+</nav>
 
 <!-- MAIN -->
-<div class="main">
+<main class="main">
 
   <!-- CREATE PAGE -->
-  <div id="createPage" style="display:none;">
+  <section id="createPage" class="page" data-page="create">
     <h2>Create Magazine</h2>
 
     <input id="title" placeholder="Title">
     <textarea id="content" placeholder="Write your magazine..."></textarea>
 
-    <button onclick="createMag()">Publish</button>
-  </div>
+    <button type="button" onclick="createMag()">Publish</button>
+  </section>
 
   <!-- FEED PAGE -->
-  <div id="feedPage">
+  <section id="feedPage" class="page active-page" data-page="feed">
     <h2>🌍 Public Feed</h2>
     <div id="feed"></div>
-  </div>
+  </section>
 
-</div>
+</main>
 
 <script>
 let currentUser = localStorage.getItem("user") || "";
+let activePage = "feed";
 
 function setUser() {
   const u = document.getElementById("username").value.trim();
@@ -169,6 +232,7 @@ function setUser() {
   localStorage.setItem("user", u);
 
   document.getElementById("currentUserText").innerText = "Logged in as: " + u;
+  render();
 }
 
 /* LOAD USER TEXT ON START */
@@ -178,7 +242,12 @@ if (currentUser) {
 
 /* STORAGE */
 function getMags() {
-  return JSON.parse(localStorage.getItem("mags") || "[]");
+  try {
+    return JSON.parse(localStorage.getItem("mags") || "[]");
+  } catch {
+    localStorage.removeItem("mags");
+    return [];
+  }
 }
 
 function saveMags(mags) {
@@ -189,8 +258,8 @@ function saveMags(mags) {
 function createMag() {
   if (!currentUser) return alert("Login first!");
 
-  const title = document.getElementById("title").value;
-  const content = document.getElementById("content").value;
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value.trim();
 
   if (!title || !content) return alert("Fill everything");
 
@@ -228,11 +297,20 @@ function editMag(id) {
   const c = prompt("Content", m.content);
 
   if (t && c) {
-    m.title = t;
-    m.content = c;
+    m.title = t.trim();
+    m.content = c.trim();
     saveMags(mags);
     render();
   }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /* RENDER */
@@ -241,33 +319,45 @@ function render() {
   feed.innerHTML = "";
 
   getMags().forEach(m => {
-    const div = document.createElement("div");
+    const div = document.createElement("article");
     div.className = "mag";
 
     div.innerHTML = `
-      <div class="title">${m.title}</div>
-      <div class="author">by ${m.author}</div>
-      <p>${m.content}</p>
+      <div class="title">${escapeHtml(m.title)}</div>
+      <div class="author">by ${escapeHtml(m.author)}</div>
+      <p>${escapeHtml(m.content)}</p>
     `;
 
     const actions = document.createElement("div");
     actions.className = "actions";
 
     const view = document.createElement("button");
+    view.type = "button";
     view.innerText = "View";
-    view.onclick = () => alert(m.content);
+    view.onclick = () => {
+      clearPressedButtonState();
+      alert(m.content);
+    };
 
     actions.appendChild(view);
 
     if (m.author === currentUser) {
       const edit = document.createElement("button");
+      edit.type = "button";
       edit.innerText = "Edit";
-      edit.onclick = () => editMag(m.id);
+      edit.onclick = () => {
+        clearPressedButtonState();
+        editMag(m.id);
+      };
 
       const del = document.createElement("button");
+      del.type = "button";
       del.innerText = "Delete";
       del.className = "danger";
-      del.onclick = () => deleteMag(m.id);
+      del.onclick = () => {
+        clearPressedButtonState();
+        deleteMag(m.id);
+      };
 
       actions.appendChild(edit);
       actions.appendChild(del);
@@ -278,19 +368,41 @@ function render() {
   });
 }
 
-/* PAGE SWITCH */
-function show(page) {
-  document.getElementById("createPage").style.display = page === "create" ? "block" : "none";
-  document.getElementById("feedPage").style.display = page === "feed" ? "block" : "none";
-
-  // active button highlight
-  document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
-
-  if (page === "feed") document.querySelectorAll(".nav-btn")[0].classList.add("active");
-  if (page === "create") document.querySelectorAll(".nav-btn")[1].classList.add("active");
+function clearPressedButtonState() {
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
 }
 
+function updateActiveNav() {
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.page === activePage);
+    btn.setAttribute("aria-current", btn.dataset.page === activePage ? "page" : "false");
+  });
+}
+
+function updateActivePage() {
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.toggle("active-page", page.dataset.page === activePage);
+  });
+}
+
+/* PAGE SWITCH */
+function show(page) {
+  activePage = page;
+  updateActivePage();
+  updateActiveNav();
+  clearPressedButtonState();
+}
+
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => show(btn.dataset.page));
+});
+
+document.addEventListener("pointerup", clearPressedButtonState);
+
 render();
+show(activePage);
 </script>
 
 </body>
