@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function hasText(field, maxSize) {
+      return field is string && field.size() > 0 && field.size() <= maxSize;
+    }
+
+    function isValidTimestamp(value) {
+      return value == request.time || value is timestamp;
+    }
+
+    // User profiles
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if isOwner(uid)
+        && hasText(request.resource.data.username, 40)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'username', 'displayName', 'photoURL', 'bio', 'createdAt', 'updatedAt'
+        ]);
+      allow update: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'uid', 'username', 'displayName', 'photoURL', 'bio', 'createdAt', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // Public magazines/posts
+    match /magazines/{magazineId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && hasText(request.resource.data.title, 120)
+        && hasText(request.resource.data.content, 20000)
+        && request.resource.data.keys().hasOnly([
+          'title', 'content', 'authorUid', 'authorName', 'createdAt', 'updatedAt',
+          'status', 'likes', 'commentsCount', 'groupId'
+        ]);
+      allow update, delete: if signedIn()
+        && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Comments under magazines
+    match /magazines/{magazineId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && hasText(request.resource.data.text, 2000)
+        && request.resource.data.keys().hasOnly([
+          'text', 'authorUid', 'authorName', 'createdAt', 'updatedAt'
+        ]);
+      allow update, delete: if signedIn()
+        && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Site-wide messages page. Fixes "missing or insufficient permissions" when reading messages.
+    match /messages/{messageId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && hasText(request.resource.data.text, 4000)
+        && request.resource.data.keys().hasOnly([
+          'text', 'authorUid', 'authorName', 'createdAt', 'updatedAt', 'groupId'
+        ]);
+      allow update, delete: if signedIn()
+        && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Groups directory
+    match /groups/{groupId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && hasText(request.resource.data.name, 80)
+        && request.resource.data.keys().hasOnly([
+          'name', 'description', 'ownerUid', 'ownerName', 'createdAt', 'updatedAt', 'membersCount'
+        ]);
+      allow update, delete: if signedIn()
+        && resource.data.ownerUid == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.resource.data.authorUid == request.auth.uid
+          && hasText(request.resource.data.text, 4000)
+          && request.resource.data.keys().hasOnly([
+            'text', 'authorUid', 'authorName', 'createdAt', 'updatedAt'
+          ]);
+        allow update, delete: if signedIn()
+          && resource.data.authorUid == request.auth.uid;
+      }
+
+      match /members/{uid} {
+        allow read: if true;
+        allow create: if isOwner(uid);
+        allow update, delete: if isOwner(uid) ||
+          (signedIn() && get(/databases/$(database)/documents/groups/$(groupId)).data.ownerUid == request.auth.uid);
+      }
+    }
+
+    // Kigazine HQ announcements/posts
+    match /hq/{docId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && hasText(request.resource.data.title, 120)
+        && hasText(request.resource.data.content, 20000)
+        && request.resource.data.keys().hasOnly([
+          'title', 'content', 'authorUid', 'authorName', 'createdAt', 'updatedAt'
+        ]);
+      allow update, delete: if signedIn()
+        && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Alternative common HQ collection names, in case the app uses one of these.
+    match /kigazineHQ/{docId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.authorUid == request.auth.uid;
+    }
+
+    match /hqMessages/{docId} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.authorUid == request.auth.uid;
+    }
+  }
+}
