@@ -26,32 +26,130 @@ const state = {
   user: null
 };
 
+const ACTIVE_CLASSES = [
+  "active",
+  "pressed",
+  "selected",
+  "current",
+  "is-active",
+  "nav-active"
+];
+
+const SIDEBAR_SELECTOR = ".sidebar, aside, nav, [data-sidebar]";
+const NAV_ITEM_SELECTOR = "button, a, [role='button'], [data-nav], [data-page-target]";
+
 onAuthStateChanged(auth, user => {
   state.user = user;
   document.body.dataset.auth = user ? "signed-in" : "signed-out";
 });
 
-export function setActivePage(pageName) {
-  state.currentPage = pageName;
+function getPageNameFromElement(el) {
+  if (!el) return "";
 
-  document.querySelectorAll("[data-page]").forEach(page => {
-    page.hidden = page.dataset.page !== pageName;
-    page.classList.toggle("active-page", page.dataset.page === pageName);
+  return (
+    el.dataset.nav ||
+    el.dataset.pageTarget ||
+    el.dataset.page ||
+    el.getAttribute("data-section") ||
+    el.getAttribute("aria-controls") ||
+    ""
+  ).trim();
+}
+
+function normalizePageName(pageName) {
+  return String(pageName || "")
+    .replace(/^#/, "")
+    .replace(/Page$/, "")
+    .trim()
+    .toLowerCase();
+}
+
+function removeVisualState(el) {
+  ACTIVE_CLASSES.forEach(className => el.classList.remove(className));
+  el.removeAttribute("aria-current");
+  el.removeAttribute("data-active");
+
+  if (typeof el.blur === "function") el.blur();
+}
+
+function addVisualState(el) {
+  el.classList.add("active");
+  el.setAttribute("aria-current", "page");
+  el.dataset.active = "true";
+}
+
+export function clearButtonPressState() {
+  document.querySelectorAll("button, a, [role='button'], .pressed, .active").forEach(el => {
+    if (!el.closest(SIDEBAR_SELECTOR)) {
+      el.classList.remove("pressed", "selected", "current", "is-active", "nav-active");
+      if (typeof el.blur === "function") el.blur();
+    }
   });
 
-  document.querySelectorAll("[data-nav]").forEach(button => {
-    const active = button.dataset.nav === pageName;
-    button.classList.toggle("active", active);
-    button.classList.toggle("pressed", false);
-    button.setAttribute("aria-current", active ? "page" : "false");
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
+}
+
+export function setSidebarActive(pageName, clickedElement = null) {
+  const targetName = normalizePageName(pageName);
+  const sidebarItems = document.querySelectorAll(`${SIDEBAR_SELECTOR} ${NAV_ITEM_SELECTOR}`);
+
+  sidebarItems.forEach(item => {
+    removeVisualState(item);
   });
 
+  let activeItem = clickedElement?.closest?.(`${SIDEBAR_SELECTOR} ${NAV_ITEM_SELECTOR}`) || null;
+
+  if (!activeItem && targetName) {
+    activeItem = Array.from(sidebarItems).find(item => {
+      const itemPage = normalizePageName(getPageNameFromElement(item));
+      const hrefPage = normalizePageName(item.getAttribute("href") || "");
+      const textPage = normalizePageName(item.textContent || "");
+      return itemPage === targetName || hrefPage === targetName || textPage.includes(targetName);
+    }) || null;
+  }
+
+  if (activeItem) addVisualState(activeItem);
   clearButtonPressState();
 }
 
+export function setActivePage(pageName, clickedElement = null) {
+  state.currentPage = pageName;
+  const normalized = normalizePageName(pageName);
+
+  document.querySelectorAll("[data-page]").forEach(page => {
+    const pageKey = normalizePageName(page.dataset.page || page.id);
+    const active = pageKey === normalized;
+    page.hidden = !active;
+    page.classList.toggle("active-page", active);
+  });
+
+  setSidebarActive(pageName, clickedElement);
+}
+
 export function installNavLogic() {
-  document.querySelectorAll("[data-nav]").forEach(button => {
-    button.addEventListener("click", () => setActivePage(button.dataset.nav));
+  document.addEventListener("click", event => {
+    const navItem = event.target.closest(`${SIDEBAR_SELECTOR} ${NAV_ITEM_SELECTOR}`);
+    if (!navItem) return;
+
+    const pageName = getPageNameFromElement(navItem);
+
+    // Critical fix: remove stuck states immediately before any plugin/router code runs.
+    setSidebarActive(pageName, navItem);
+
+    if (pageName) {
+      state.currentPage = pageName;
+      window.requestAnimationFrame(() => setSidebarActive(pageName, navItem));
+      window.setTimeout(() => setSidebarActive(pageName, navItem), 0);
+    }
+  }, true);
+
+  document.querySelectorAll("[data-nav], [data-page-target]").forEach(button => {
+    button.addEventListener("click", event => {
+      const pageName = getPageNameFromElement(button);
+      if (pageName) setActivePage(pageName, event.currentTarget);
+    });
   });
 
   document.addEventListener("pointerup", clearButtonPressState);
@@ -59,16 +157,9 @@ export function installNavLogic() {
     if (event.key === "Escape") clearButtonPressState();
   });
 
-  setActivePage(state.currentPage);
-}
-
-export function clearButtonPressState() {
-  document.querySelectorAll("button.pressed, .pressed").forEach(el => {
-    el.classList.remove("pressed");
-  });
-
-  if (document.activeElement && typeof document.activeElement.blur === "function") {
-    document.activeElement.blur();
+  const initial = document.querySelector(`${SIDEBAR_SELECTOR} .active, ${SIDEBAR_SELECTOR} [aria-current='page']`);
+  if (initial) {
+    setSidebarActive(getPageNameFromElement(initial), initial);
   }
 }
 
@@ -244,6 +335,7 @@ export async function createHQPost({ title, content }) {
 
 window.KigazineFixes = {
   setActivePage,
+  setSidebarActive,
   installNavLogic,
   clearButtonPressState,
   loadMessages,
