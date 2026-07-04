@@ -18,6 +18,10 @@ service cloud.firestore {
       return value == request.time || value is timestamp;
     }
 
+    function validArcadeTiles(value) {
+      return value is string && value.size() == 240 && value.matches('^[0-6]+$');
+    }
+
     // User profiles
     match /users/{uid} {
       allow read: if true;
@@ -134,24 +138,55 @@ service cloud.firestore {
       allow update, delete: if signedIn() && resource.data.authorUid == request.auth.uid;
     }
 
-    // Public arcade game levels made in arcade.html.
-    // Create is intentionally public but schema-limited so visitors can publish games without accounts.
+    // Blockcade / Kigazine Arcade games.
     match /arcadeGames/{gameId} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasOnly([
-          'title', 'authorName', 'description', 'width', 'height', 'grid', 'createdAt', 'updatedAt'
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'title', 'authorName', 'ownerUid', 'width', 'height', 'tiles', 'createdAt', 'updatedAt'
         ])
-        && hasText(request.resource.data.title, 80)
-        && hasText(request.resource.data.authorName, 40)
-        && request.resource.data.description is string
-        && request.resource.data.description.size() <= 500
-        && request.resource.data.width == 12
-        && request.resource.data.height == 8
-        && request.resource.data.grid is list
-        && request.resource.data.grid.size() == 96
+        && hasText(request.resource.data.title, 60)
+        && hasText(request.resource.data.authorName, 30)
+        && request.resource.data.width == 20
+        && request.resource.data.height == 12
+        && validArcadeTiles(request.resource.data.tiles)
         && isValidTimestamp(request.resource.data.createdAt)
         && isValidTimestamp(request.resource.data.updatedAt);
-      allow update, delete: if false;
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'title', 'authorName', 'ownerUid', 'width', 'height', 'tiles', 'createdAt', 'updatedAt'
+        ])
+        && hasText(request.resource.data.title, 60)
+        && hasText(request.resource.data.authorName, 30)
+        && request.resource.data.width == 20
+        && request.resource.data.height == 12
+        && validArcadeTiles(request.resource.data.tiles)
+        && isValidTimestamp(request.resource.data.updatedAt);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      match /scores/{scoreId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'uid', 'displayName', 'seconds', 'coins', 'deaths', 'createdAt'
+          ])
+          && hasText(request.resource.data.displayName, 30)
+          && request.resource.data.seconds is number
+          && request.resource.data.seconds >= 0
+          && request.resource.data.seconds <= 3600
+          && request.resource.data.coins is int
+          && request.resource.data.coins >= 0
+          && request.resource.data.coins <= 240
+          && request.resource.data.deaths is int
+          && request.resource.data.deaths >= 0
+          && request.resource.data.deaths <= 999
+          && isValidTimestamp(request.resource.data.createdAt);
+        allow update, delete: if false;
+      }
     }
   }
 }
