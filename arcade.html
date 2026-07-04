@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Kigazine Arcade</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#020617;color:#fff}header{padding:18px 22px;background:#0f172a;border-bottom:1px solid #1e293b;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}a{color:#93c5fd}.brand{font-size:26px;font-weight:800}.wrap{max-width:1150px;margin:auto;padding:22px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.tab,button{border:0;border-radius:10px;background:#2563eb;color:#fff;padding:10px 14px;cursor:pointer}.tab{background:#1e293b}.tab.active{background:#3b82f6}.page{display:none}.page.active{display:block}.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:15px;margin:12px 0}input,textarea{width:100%;padding:11px;margin:7px 0 12px;border-radius:10px;border:1px solid #334155;background:#020617;color:#fff}textarea{height:90px}.muted{opacity:.75;font-size:13px;line-height:1.45}.gridbox{overflow:auto;border:1px solid #1e293b;border-radius:14px;background:#020617;padding:8px}.grid{display:grid;grid-template-columns:repeat(12,34px);grid-template-rows:repeat(8,34px);gap:3px;touch-action:none}.tile{width:34px;height:34px;border-radius:7px;border:1px solid #334155;background:#e2e8f0;color:#020617;display:grid;place-items:center;font-weight:800;user-select:none}.wall{background:#475569}.spike{background:#ef4444}.coin{background:#facc15}.start{background:#22c55e}.goal{background:#a855f7;color:#fff}.player{background:#0ea5e9!important;color:#fff;box-shadow:0 0 0 3px #7dd3fc inset}.palette,.actions{display:flex;gap:8px;flex-wrap:wrap}.palette button{background:#1e293b}.palette button.active{background:#3b82f6}.danger{background:#dc2626}.two{display:grid;grid-template-columns:minmax(280px,390px) 1fr;gap:16px}.pill{display:inline-block;background:#1e293b;border-radius:999px;padding:3px 8px;font-size:12px;margin:3px}.empty{border:1px dashed #334155;border-radius:14px;padding:18px;opacity:.75}@media(max-width:800px){.two{grid-template-columns:1fr}.grid{grid-template-columns:repeat(12,28px);grid-template-rows:repeat(8,28px)}.tile{width:28px;height:28px}}
+</style>
+</head>
+<body>
+<header><div class="brand">🎮 Kigazine Arcade</div><div><a href="index.html">Back to Kigazine</a></div></header>
+<div class="wrap">
+  <div class="tabs"><button class="tab active" data-page="play">🕹️ Public Arcade</button><button class="tab" data-page="build">🧱 Build Game</button></div>
+  <p id="status" class="muted">Connecting to Firebase...</p>
+
+  <section id="play" class="page active">
+    <h2>Play games</h2>
+    <p class="muted">Controls: arrow keys or WASD. Avoid red spikes, collect yellow coins, reach the purple goal.</p>
+    <div id="games"></div>
+  </section>
+
+  <section id="build" class="page">
+    <h2>Build a Bloxels-style game</h2>
+    <div class="two">
+      <div class="card">
+        <input id="name" maxlength="40" placeholder="Your username">
+        <input id="title" maxlength="80" placeholder="Game title">
+        <textarea id="desc" maxlength="500" placeholder="Game description"></textarea>
+        <div id="palette" class="palette"></div>
+        <p class="muted">Use one green Start and one purple Goal. White=floor, gray=wall, red=spike, yellow=coin.</p>
+        <div class="actions"><button id="clear" class="danger">Reset</button><button id="test">Test</button><button id="publish">Publish</button></div>
+      </div>
+      <div><div class="gridbox"><div id="builder" class="grid"></div></div><p id="builderInfo" class="muted"></p></div>
+    </div>
+  </section>
+
+  <section id="game" class="page">
+    <h2 id="gameTitle">Game</h2>
+    <p id="gameMeta" class="muted"></p>
+    <div class="actions"><button id="back">Back</button><button id="restart">Restart</button></div>
+    <p id="gameInfo" class="muted"></p>
+    <div class="gridbox"><div id="gameGrid" class="grid"></div></div>
+  </section>
+</div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import{getFirestore,collection,addDoc,onSnapshot,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyB2vOQPPWJ5LGg5Pxp48UR408P6qpYCEsE",authDomain:"kigazine-302ac.firebaseapp.com",projectId:"kigazine-302ac",storageBucket:"kigazine-302ac.firebasestorage.app",messagingSenderId:"821833747017",appId:"1:821833747017:web:dc20a182d1935408c34d98"};
+const app=initializeApp(firebaseConfig),db=getFirestore(app),W=12,H=8,N=W*H;
+let games=[],paint="wall",down=false,map=Array(N).fill("empty"),current=null,player=0,coins=0,dead=false;
+const T={empty:["Floor","",""],wall:["Wall","","wall"],spike:["Spike","▲","spike"],coin:["Coin","●","coin"],start:["Start","S","start"],goal:["Goal","★","goal"]};
+const $=id=>document.getElementById(id);const esc=s=>String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+function page(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.page===id))}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>page(b.dataset.page));
+function makeCell(type,i,playMode=false){const t=T[type]||T.empty,d=document.createElement("div");d.className=`tile ${t[2]} ${playMode&&i===player?"player":""}`;d.textContent=playMode&&i===player?"🙂":t[1];return d}
+function reset(){map=Array(N).fill("empty");map[84]="start";map[11]="goal";for(let i=25;i<35;i++)map[i]="wall";map[52]="coin";map[66]="spike";drawBuild()}
+function drawBuild(){const g=$("builder");g.innerHTML="";map.forEach((type,i)=>{const c=makeCell(type,i);c.onpointerdown=()=>{down=true;put(i)};c.onpointerenter=()=>{if(down&&paint!=="start"&&paint!=="goal")put(i)};g.appendChild(c)});$("builderInfo").textContent=`Start: ${map.filter(x=>x==="start").length} • Goal: ${map.filter(x=>x==="goal").length} • Coins: ${map.filter(x=>x==="coin").length}`}
+function put(i){if(paint==="start")map=map.map(x=>x==="start"?"empty":x);if(paint==="goal")map=map.map(x=>x==="goal"?"empty":x);map[i]=paint;drawBuild()}document.addEventListener("pointerup",()=>down=false);
+function palette(){const p=$("palette");p.innerHTML="";Object.keys(T).forEach(k=>{const b=document.createElement("button");b.textContent=`${T[k][1]||"□"} ${T[k][0]}`;b.className=k===paint?"active":"";b.onclick=()=>{paint=k;palette()};p.appendChild(b)})}
+function valid(){if(map.filter(x=>x==="start").length!==1)return"Need exactly one Start tile.";if(map.filter(x=>x==="goal").length!==1)return"Need exactly one Goal tile.";return""}
+async function publish(){const err=valid();if(err)return alert(err);const title=$("title").value.trim(),author=$("name").value.trim()||"Anonymous",description=$("desc").value.trim();if(!title)return alert("Add a game title.");try{await addDoc(collection(db,"arcadeGames"),{title,authorName:author,description,width:W,height:H,grid:map,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});alert("Published to the public arcade.");page("play")}catch(e){console.error(e);alert("Firestore rules blocked publishing. Deploy the firestore.rules update.")}}
+function list(){const box=$("games");box.innerHTML="";if(!games.length){box.innerHTML='<div class="empty">No games yet. Build the first one.</div>';return}games.forEach(x=>{const c=document.createElement("div");c.className="card";c.innerHTML=`<h3>${esc(x.title)}</h3><p class="muted">by ${esc(x.authorName||"Anonymous")}</p><p>${esc(x.description||"No description.")}</p><span class="pill">${(x.grid||[]).filter(t=>t==="coin").length} coins</span><div class="actions"><button>Play</button></div>`;c.querySelector("button").onclick=()=>start(x);box.appendChild(c)})}
+function start(x){current={...x,grid:[...(x.grid||[])]};player=current.grid.indexOf("start");if(player<0)return alert("Broken game: missing start.");coins=current.grid.filter(t=>t==="coin").length;dead=false;$("gameTitle").textContent="🎮 "+current.title;$("gameMeta").textContent=`by ${current.authorName||"Anonymous"} • ${current.description||"Reach the goal."}`;drawGame();page("game")}
+function drawGame(){const g=$("gameGrid");g.innerHTML="";current.grid.forEach((t,i)=>g.appendChild(makeCell(t,i,true)));if(!dead)$("gameInfo").textContent=`Coins left: ${coins}`}
+function move(dx,dy){if(!current||dead)return;const x=player%W,y=Math.floor(player/W),nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H)return;const ni=ny*W+nx,t=current.grid[ni];if(t==="wall")return;if(t==="spike"){player=ni;dead=true;$("gameInfo").textContent="💥 Spike! Press Restart.";drawGame();return}if(t==="coin"){current.grid[ni]="empty";coins--}player=ni;if(t==="goal"){dead=true;$("gameInfo").textContent=coins?"⭐ Goal reached. Try collecting every coin too.":"🏆 You win!"}drawGame()}
+document.addEventListener("keydown",e=>{if(!$("game").classList.contains("active"))return;const k=e.key.toLowerCase();if(k==="arrowup"||k==="w")move(0,-1);if(k==="arrowdown"||k==="s")move(0,1);if(k==="arrowleft"||k==="a")move(-1,0);if(k==="arrowright"||k==="d")move(1,0)});
+$("clear").onclick=reset;$("test").onclick=()=>{const err=valid();if(err)return alert(err);start({title:$("title").value.trim()||"Test Game",authorName:$("name").value.trim()||"You",description:$("desc").value.trim(),grid:map})};$("publish").onclick=publish;$("back").onclick=()=>page("play");$("restart").onclick=()=>current&&start(current);
+palette();reset();onSnapshot(query(collection(db,"arcadeGames"),orderBy("createdAt","desc")),s=>{games=s.docs.map(d=>({id:d.id,...d.data()}));$("status").textContent="Firebase connected ✅";list()},e=>{$("status").textContent="Firestore blocked reads/writes ⚠️";console.error(e);list()});
+</script>
+</body>
+</html>
