@@ -133,5 +133,25 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.authorUid == request.auth.uid;
     }
+
+    // Public arcade game levels made in arcade.html.
+    // Create is intentionally public but schema-limited so visitors can publish games without accounts.
+    match /arcadeGames/{gameId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly([
+          'title', 'authorName', 'description', 'width', 'height', 'grid', 'createdAt', 'updatedAt'
+        ])
+        && hasText(request.resource.data.title, 80)
+        && hasText(request.resource.data.authorName, 40)
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 500
+        && request.resource.data.width == 12
+        && request.resource.data.height == 8
+        && request.resource.data.grid is list
+        && request.resource.data.grid.size() == 96
+        && isValidTimestamp(request.resource.data.createdAt)
+        && isValidTimestamp(request.resource.data.updatedAt);
+      allow update, delete: if false;
+    }
   }
 }
